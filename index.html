@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DeskKat — Client avancé</title>
+<style>
+:root{
+  --bg:#f5f5f5;--panel:#ffffff;--muted:#64748b;--text:#1e293b;
+  --primary:#22d3ee;--accent:#a78bfa;--border:#cbd5e1;--danger:#ef4444;
+  --success:#10b981;--warning:#f59e0b;--info:#3b82f6;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font:15px/1.45 system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+.loader{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px;font-size:18px;color:var(--primary)}
+.spinner{border:4px solid rgba(0,0,0,0.1);border-top:4px solid var(--primary);border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite}
+@keyframes spin{100%{transform:rotate(360deg)}}
+
+/* Styles généraux */
+.app{display:grid;grid-template-columns:400px 1.6fr 420px;gap:10px;height:100vh;padding:12px;opacity:0;transition:opacity 0.3s}.show{opacity:1}
+.col{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;overflow:auto}
+.header{display:flex;gap:12px;align-items:center;position:sticky;top:12px;background:transparent;padding-bottom:8px;z-index:5;flex-wrap:wrap}
+.search{flex:1;display:flex;gap:8px}.search input{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:#f0f9ff;color:var(--text)}
+
+/* Boutons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:#f0f9ff;color:#1e293b;cursor:pointer;transition: all 0.2s ease;}
+.btn:hover{background-color:#d0f7ff;transform:translateY(-2px);box-shadow:0 2px 6px rgba(0,0,0,0.15);}
+.btn.primary{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border:none;font-weight:700}
+.btn.danger{background:var(--danger);color:#fff;border:none}
+.small{padding:6px 8px;font-size:13px}
+.section{margin-top:12px}
+.section h4{margin:0 0 8px;color:var(--muted);font-size:13px;text-transform:uppercase}
+
+/* Comptes */
+.accounts-box{border:1px solid var(--border);border-radius:10px;padding:8px;background:#e2e8f0;max-height:200px;overflow:auto}
+.account-line{display:flex;justify-content:space-between;align-items:center;padding:6px;border-radius:8px;background:#ffffff;border:1px solid #cbd5e1;margin-bottom:4px;cursor:pointer;transition:0.2s}
+.account-line:hover{background:#f0f9ff}
+.account-line.active{background:#d0f0ff;border-color:#22d3ee;}
+.account-left{display:flex;align-items:center;gap:8px}.account-left img{width:18px;height:18px;border-radius:4px}
+
+/* Messages */
+.list{padding:6px 0;display:grid;gap:12px;max-height:500px;overflow:auto}
+.card{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px;border-radius:12px;border:1px solid var(--border);background:#f8fafc;align-items:center;transition: transform 0.2s ease, box-shadow 0.2s ease;}
+.card:hover{transform:translateY(-3px);box-shadow:0 6px 12px rgba(0,0,0,0.15);}
+.card img{width:20px;height:20px;border-radius:3px;vertical-align:middle;margin-right:6px}
+.meta{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px;flex-wrap:wrap}
+.summary{color:var(--muted);margin-bottom:8px}
+.favorite{font-size:16px;cursor:pointer;transition: transform 0.2s ease, color 0.2s ease;}
+.favorite.inactive{color:#cbd5e1;}
+.favorite:hover{transform:scale(1.2);color:gold;}
+.favorite.pulse{animation:pulse 0.3s ease-in-out;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
+
+/* Badge Nouveau */
+.new-badge {display:inline-block;background:#22d3ee;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:6px;margin-left:6px;animation: pulseBadge 1s infinite;}
+@keyframes pulseBadge {0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.2);opacity:0.7;}}
+
+/* Profile */
+.profile-photo{width:100px;height:100px;border-radius:999px;object-fit:cover;margin:0 auto 8px;border:2px solid rgba(34,211,238,0.12)}
+.settings-block{border:1px solid var(--border);padding:10px;border-radius:10px;display:flex;flex-direction:column;gap:8px;background:#f0f9ff}
+
+/* Pagination */
+.pagination{display:flex;gap:4px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+
+/* Historique */
+.hist-msg{background:#fff;padding:10px;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:6px;box-shadow:0 2px 4px rgba(0,0,0,0.05);transition:all 0.3s ease;cursor:grab;}
+.hist-msg:hover{transform:translateY(-3px);box-shadow:0 6px 12px rgba(0,0,0,0.15);background:#f0f9ff;}
+.hist-msg details>div{max-height:0;overflow:hidden;transition:max-height 0.4s ease,padding 0.4s ease;padding:0 6px;}
+.hist-msg details[open]>div{max-height:500px;padding:6px 6px 6px 6px;}
+.fade-out{opacity:0;transition:opacity 0.3s ease;}
+.hist-actions .btn{transition:0.2s;}
+.hist-actions .btn:hover{transform:translateY(-2px);box-shadow:0 2px 6px rgba(0,0,0,0.15);}
+
+/* small toast */
+.toast{position:fixed;right:18px;bottom:18px;background:#111;color:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.2);opacity:0;transform:translateY(8px);transition:all .25s ease;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
+
+/* Login overlay */
+#loginScreen{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(245,245,245,0.95);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:10000}
+#loginScreen input{padding:8px 10px;border-radius:8px;border:1px solid var(--border);width:250px}
+</style>
+</head>
+<body>
+
+<!-- Loader -->
+<div class="loader" id="loader"><div class="spinner"></div>Chargement DeskKat...</div>
+
+<!-- Login -->
+<div id="loginScreen">
+  <h2>Connexion DeskKat</h2>
+  <input type="text" id="newUserNameInput" placeholder="Nom d'utilisateur">
+  <button id="createUserBtn" class="btn primary">Créer / Sélectionner</button>
+  <div>ou</div>
+  <input type="text" id="apiKeyLogin" placeholder="Entrer votre API Key">
+  <button id="loginWithApiBtn" class="btn primary">Connexion via API Key</button>
+  <div id="userListContainer" style="max-height:150px;overflow:auto;width:260px;"></div>
+</div>
+
+<!-- App -->
+<div class="app" id="app">
+<!-- LEFT -->
+<aside class="col" id="leftCol">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div style="font-weight:800;font-size:18px">DeskKat</div>
+<div class="small-muted">Modules</div>
+</div>
+
+<div class="section">
+<h4>Dossiers</h4>
+<div style="display:flex;flex-direction:column;gap:8px">
+<button class="btn small" data-folder="all">Tout</button>
+<button class="btn small" data-folder="unread">Non lus</button>
+<button class="btn small" data-folder="fav">Favoris</button>
+<button class="btn small" data-folder="today">Aujourd'hui (Tous comptes)</button>
+</div>
+<div style="margin-top:8px;">
+Du:<input type="date" id="dateFrom">
+Au:<input type="date" id="dateTo">
+<button id="filterDateBtn" class="btn small">Filtrer</button>
+</div>
+</div>
+
+<div class="section">
+<h4>Comptes</h4>
+<div id="accountsContainer" class="accounts-box"></div>
+<div style="display:flex;gap:8px;margin-top:8px">
+<input id="newAccountEmail" type="email" placeholder="Nouvel email" class="small" style="flex:1;">
+<button id="addAccountBtn" class="btn small primary">Ajouter</button>
+</div>
+</div>
+
+<div class="section">
+<h4>API Key</h4>
+<div class="settings-block">
+<input type="text" id="apiKeyInput" placeholder="Générer API Key" readonly style="width:100%">
+<div style="display:flex;gap:8px;margin-top:4px">
+<button id="generateApiBtn" class="btn small primary">Générer</button>
+<button id="copyApiBtn" class="btn small">Copier</button>
+<button id="toggleApiBtn" class="btn small">Voir</button>
+<button id="resetApiBtn" class="btn small danger">Réinitialiser</button>
+</div>
+</div>
+</div>
+
+<div class="section">
+<h4>Télécharger tout</h4>
+<button id="downloadAllBtn" class="btn small primary">Télécharger JSON</button>
+</div>
+
+<div class="section">
+<h4>Import / Export global</h4>
+<div style="display:flex;gap:8px;flex-direction:column">
+<button id="exportUsersBtn" class="btn small primary">Exporter utilisateurs</button>
+<input type="file" id="importUsersFile" class="small">
+<button id="importUsersBtn" class="btn small">Importer utilisateurs</button>
+</div>
+</div>
+
+</aside>
+
+<!-- CENTER -->
+<main class="col" id="centerCol">
+<div class="header">
+<div class="search"><input id="searchInput" placeholder="Recherche en temps réel"/><button id="clearSearch" class="btn small">✖</button></div>
+</div>
+<section id="conversationsList" class="list"></section>
+<div class="pagination" id="pagination"></div>
+</main>
+
+<!-- RIGHT -->
+<aside class="col" id="rightCol">
+<img id="displayPhoto" class="profile-photo" src="" alt="Photo profil">
+<div style="text-align:center">
+<div style="font-weight:800" id="displayName">Utilisateur</div>
+<div class="small-muted" id="displayEmail">user@exemple.com</div>
+</div>
+
+<div class="section">
+<h4>Profil</h4>
+<div class="settings-block">
+<label>Nom<br><input id="profileName" type="text" style="width:100%"></label>
+<label>Photo de profil<br><input id="profilePhoto" type="file" accept="image/*"></label>
+<div style="display:flex;gap:8px"><button id="saveProfileBtn" class="btn primary">Enregistrer</button><button id="resetProfileBtn" class="btn small">Réinitialiser</button></div>
+</div>
+</div>
+
+<div class="section">
+<h4>Historique</h4>
+<div class="accounts-box" id="historyContainer" style="max-height:250px"></div>
+<div class="hist-actions" style="display:flex;gap:4px;margin-top:4px">
+<button id="saveHistBtn" class="btn small">Enregistrer</button>
+<button id="downloadHistBtn" class="btn small">Télécharger</button>
+<button id="clearHistBtn" class="btn small danger">Effacer</button>
+<button id="refreshHistBtn" class="btn small primary">Rafraîchir</button>
+</div>
+</div>
+</aside>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ================= Loader =================
+window.addEventListener('load',()=>{setTimeout(()=>{document.getElementById('loader').style.display='none';},500);});
+
+// ================= Toast =================
+function showToast(msg, ms=1800){const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._to); t._to=setTimeout(()=>t.classList.remove('show'),ms);}
+
+// ================= Multi-users =================
+let deskUsers = JSON.parse(localStorage.getItem('deskUsers')||'[]');
+let activeUserIndex = 0;
+const loginScreen = document.getElementById('loginScreen');
+const app = document.getElementById('app');
+const newUserNameInput = document.getElementById('newUserNameInput');
+const createUserBtn = document.getElementById('createUserBtn');
+const userListContainer = document.getElementById('userListContainer');
+const apiKeyLoginInput = document.getElementById('apiKeyLogin');
+const loginWithApiBtn = document.getElementById('loginWithApiBtn');
+
+function saveUsers(){localStorage.setItem('deskUsers',JSON.stringify(deskUsers));}
+function getActiveUser(){return deskUsers[activeUserIndex];}
+function renderUserList(){
+  userListContainer.innerHTML='';
+  deskUsers.forEach((u,i)=>{
+    const div=document.createElement('div'); div.className='account-line';
+    div.textContent=u.name; div.style.cursor='pointer';
+    div.addEventListener('click',()=>{activeUserIndex=i; enterApp();});
+    userListContainer.appendChild(div);
+  });
+}
+function enterApp(){loginScreen.style.display='none'; app.classList.add('show'); loadProfile(); renderAccounts(); renderMessages(); renderHistory();}
+
+createUserBtn.addEventListener('click',()=>{
+  const name = newUserNameInput.value.trim(); if(!name) return;
+  let user = deskUsers.find(u=>u.name===name);
+  if(!user){user={name:name,photo:'',accounts:[],history:[],apiKey:''}; deskUsers.push(user);}
+  activeUserIndex = deskUsers.findIndex(u=>u.name===name);
+  saveUsers(); renderUserList(); enterApp();
+});
+
+loginWithApiBtn.addEventListener('click',()=>{
+  const key = apiKeyLoginInput.value.trim();
+  if(!key) return showToast('Veuillez saisir une API Key');
+  const index = deskUsers.findIndex(u => u.apiKey === key);
+  if(index===-1) return showToast('API Key invalide');
+  activeUserIndex = index;
+  apiKeyLoginInput.value='';
+  enterApp();
+});
+
+renderUserList();
+
+// ================= Profile =================
+const displayPhoto=document.getElementById('displayPhoto');
+const profileNameInput=document.getElementById('profileName');
+const profilePhotoInput=document.getElementById('profilePhoto');
+const displayName=document.getElementById('displayName');
+const displayEmail=document.getElementById('displayEmail');
+
+function loadProfile(){
+  const u=getActiveUser();
+  profileNameInput.value = u.name||'';
+  displayName.textContent='@'+u.name.toLowerCase().replace(/\s+/g,'');
+  displayEmail.textContent=`deskkat.com/@${u.name.toLowerCase().replace(/\s+/g,'')}`;
+  displayPhoto.src = u.photo||'';
+}
+function saveProfile(){
+  const u=getActiveUser();
+  const reader=new FileReader();
+  if(profilePhotoInput.files[0]){
+    reader.readAsDataURL(profilePhotoInput.files[0]);
+    reader.onload=()=>{u.name=profileNameInput.value; u.photo=reader.result; saveUsers(); loadProfile(); showToast('Profil enregistré');}
+  } else {u.name=profileNameInput.value; saveUsers(); loadProfile(); showToast('Profil enregistré');}
+}
+function resetProfile(){const u=getActiveUser(); u.name=''; u.photo=''; saveUsers(); profileNameInput.value=''; profilePhotoInput.value=''; loadProfile(); showToast('Profil réinitialisé');}
+document.getElementById('saveProfileBtn').addEventListener('click',saveProfile);
+document.getElementById('resetProfileBtn').addEventListener('click',resetProfile);
+
+// ================= Accounts & Messages =================
+let currentAccountIndex=0;
+const itemsPerPage=5;
+const accountsContainer=document.getElementById('accountsContainer');
+const convList=document.getElementById('conversationsList');
+const pagination=document.getElementById('pagination');
+const histContainer=document.getElementById('historyContainer');
+
+function generateDummyMessages(email){const msgs=[];for(let i=1;i<=15;i++){msgs.push({subject:`Message ${i} de ${email}`,content:`Contenu du message ${i} du compte ${email}. <a href="#">Lien</a>`,favorite:Math.random()>0.7,status:['incoming','pending','processed'][Math.floor(Math.random()*3)],date:new Date(Date.now()-i*3600*1000)});}return msgs;}
+function getMailIcon(email){if(email.includes('gmail')) return 'https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico'; if(email.includes('yahoo')) return 'https://s.yimg.com/rz/l/yahoo_mail_en-US_f_p_142x37_mail.png'; if(email.includes('outlook')) return 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Microsoft_Outlook_2013_logo.png'; return 'https://via.placeholder.com/18';}
+
+// Render accounts
+function renderAccounts(){
+  accountsContainer.innerHTML='';
+  const accounts = getActiveUser().accounts;
+  accounts.forEach((acc,i)=>{
+    const div=document.createElement('div'); div.className='account-line';
+    if(i===currentAccountIndex) div.classList.add('active');
+    div.innerHTML=`<div class="account-left"><img src="${getMailIcon(acc.email)}">${acc.email}</div>
+    <div><button class="btn small" data-index="${i}" data-action="delete">Supprimer</button></div>`;
+    accountsContainer.appendChild(div);
+  });
+  document.querySelectorAll('#accountsContainer .account-line').forEach((line, index)=>{
+    line.addEventListener('click', e=>{
+      if(e.target.dataset.action!=='delete'){currentAccountIndex=index; renderMessages(); document.querySelectorAll('#accountsContainer .account-line').forEach(l=>l.classList.remove('active'));line.classList.add('active');}
+    });
+  });
+  document.querySelectorAll('#accountsContainer .btn[data-action="delete"]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation(); getActiveUser().accounts.splice(parseInt(btn.dataset.index),1); saveUsers();
+      if(currentAccountIndex>=getActiveUser().accounts.length) currentAccountIndex=getActiveUser().accounts.length-1;
+      renderAccounts(); renderMessages();
+    });
+  });
+}
+document.getElementById('addAccountBtn').addEventListener('click',()=>{
+  const val=document.getElementById('newAccountEmail').value.trim();
+  if(!val) return;
+  getActiveUser().accounts.push({email:val,messages:generateDummyMessages(val)});
+  saveUsers(); renderAccounts(); document.getElementById('newAccountEmail').value='';
+});
+
+// Render messages
+function renderMessages(page=1,folder='all'){
+  const accounts = getActiveUser().accounts;
+  if(!accounts[currentAccountIndex]){convList.innerHTML='Aucun compte.'; return;}
+  let msgs = accounts[currentAccountIndex].messages.slice();
+  if(folder==='unread') msgs=msgs.filter(m=>m.status==='incoming');
+  if(folder==='fav') msgs=msgs.filter(m=>m.favorite);
+  if(folder==='today'){ const today=new Date(); msgs=[]; accounts.forEach(acc=>msgs=msgs.concat(acc.messages.filter(m=>new Date(m.date).toDateString()===today.toDateString())));}
+  const totalPages=Math.max(1,Math.ceil(msgs.length/itemsPerPage));
+  const start=(page-1)*itemsPerPage; const end=start+itemsPerPage;
+  convList.innerHTML='';
+  msgs.slice(start,end).forEach((m,i)=>{
+    const div=document.createElement('div'); div.className='card';
+    div.innerHTML=`<div><img src="${getMailIcon(accounts[currentAccountIndex].email)}">${m.subject}<span class="favorite ${m.favorite?'pulse':'inactive'}">${m.favorite?'★':'☆'}</span><div class="summary">${m.content}</div><div class="meta">${new Date(m.date).toLocaleString()}</div></div>
+    <div class="msg-actions">
+      <button class="btn small viewBtn">Voir</button>
+      <button class="btn small favBtn">${m.favorite?'★':'☆'}</button>
+      <button class="btn small danger deleteBtn">Supprimer</button>
+    </div>`;
+    convList.appendChild(div);
+    div.querySelector('.viewBtn').addEventListener('click',()=>{window.open('data:text/html,<h2>'+encodeURIComponent(m.subject)+'</h2><p>'+encodeURIComponent(m.content)+'</p>','_blank');});
+    const btnFav=div.querySelector('.favBtn');
+    btnFav.addEventListener('click',()=>{m.favorite=!m.favorite;btnFav.classList.add('pulse'); setTimeout(()=>btnFav.classList.remove('pulse'),300); saveUsers(); renderMessages(page,folder);});
+    const btnDel=div.querySelector('.deleteBtn');
+    btnDel.addEventListener('click',()=>{div.classList.add('fade-out'); setTimeout(()=>{accounts[currentAccountIndex].messages.splice(i,1); saveUsers(); renderMessages(page,folder);},300);});
+  });
+
+  // Pagination
+  pagination.innerHTML='';
+  if(page>1){const btn=document.createElement('button');btn.textContent='◀';btn.className='btn small';btn.addEventListener('click',()=>{renderMessages(page-1,folder);});pagination.appendChild(btn);}
+  let startPage=Math.max(1,page-2),endPage=Math.min(totalPages,startPage+4);
+  for(let i=startPage;i<=endPage;i++){const btn=document.createElement('button');btn.textContent=i;btn.className='btn small';if(i===page) btn.classList.add('primary');btn.addEventListener('click',()=>{renderMessages(i,folder);});pagination.appendChild(btn);}
+  if(page<totalPages){const btn=document.createElement('button');btn.textContent='▶';btn.className='btn small';btn.addEventListener('click',()=>{renderMessages(page+1,folder);});pagination.appendChild(btn);}
+}
+
+// Folder buttons
+document.querySelectorAll('[data-folder]').forEach(btn=>{btn.addEventListener('click',()=>{renderMessages(1,btn.dataset.folder);});});
+
+// Search
+document.getElementById('searchInput').addEventListener('input',e=>{
+  const val=e.target.value.toLowerCase();
+  const accounts = getActiveUser().accounts;
+  if(!accounts[currentAccountIndex]) return;
+  const msgs=accounts[currentAccountIndex].messages.filter(m=>m.subject.toLowerCase().includes(val)||m.content.toLowerCase().includes(val));
+  convList.innerHTML='';
+  msgs.slice(0,itemsPerPage).forEach((m,i)=>{
+    const div=document.createElement('div'); div.className='card';
+    div.innerHTML=`<div><img src="${getMailIcon(accounts[currentAccountIndex].email)}">${m.subject}<span class="favorite ${m.favorite?'pulse':'inactive'}">${m.favorite?'★':'☆'}</span><div class="summary">${m.content}</div><div class="meta">${new Date(m.date).toLocaleString()}</div></div>
+    <div class="msg-actions">
+      <button class="btn small viewBtn">Voir</button>
+      <button class="btn small favBtn">${m.favorite?'★':'☆'}</button>
+      <button class="btn small danger deleteBtn">Supprimer</button>
+    </div>`;
+    convList.appendChild(div);
+  });
+});
+document.getElementById('clearSearch').addEventListener('click',()=>{document.getElementById('searchInput').value=''; renderMessages();});
+
+// ================= Historique =================
+function renderHistory(){
+  const u=getActiveUser();
+  histContainer.innerHTML='';
+  const deskEmail='deskkat.com/@'+u.name.toLowerCase().replace(/\s+/g,'');
+  u.history.slice().reverse().forEach(h=>{
+    const div=document.createElement('div'); div.className='hist-msg';
+    div.innerHTML=`<details>
+      <summary>${new Date(h.date).toLocaleString()} - @${u.name}</summary>
+      <div>
+        <div>Email: ${deskEmail}</div>
+        <div>Message: ${h.content}</div>
+      </div>
+    </details>`;
+    histContainer.appendChild(div);
+  });
+}
+document.getElementById('saveHistBtn').addEventListener('click',()=>{
+  const accounts = getActiveUser().accounts;
+  accounts.forEach(acc=>acc.messages.forEach(m=>getActiveUser().history.push({date:m.date,content:m.content})));
+  saveUsers(); renderHistory(); showToast('Historique enrichi');
+});
+document.getElementById('downloadHistBtn').addEventListener('click',()=>{
+  const u=getActiveUser();
+  const blob=new Blob([u.history.map(h=>`${new Date(h.date).toLocaleString()} - ${h.content}`).join('\n')],{type:'text/plain'});
+  const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download='historique.txt'; link.click();
+});
+document.getElementById('clearHistBtn').addEventListener('click',()=>{getActiveUser().history=[]; saveUsers(); renderHistory(); showToast('Historique effacé');});
+document.getElementById('refreshHistBtn').addEventListener('click',()=>{renderHistory(); showToast('Historique rafraîchi');});
+
+// ================= API Key =================
+const apiKeyInput = document.getElementById('apiKeyInput');
+const generateApiBtn = document.getElementById('generateApiBtn');
+const copyApiBtn = document.getElementById('copyApiBtn');
+const toggleApiBtn = document.getElementById('toggleApiBtn');
+const resetApiBtn = document.getElementById('resetApiBtn');
+let apiKeyVisible=false;
+
+function generateRandomBase64Url(bytesCount = 32){
+  const bytes = new Uint8Array(bytesCount); crypto.getRandomValues(bytes);
+  let binary = ''; for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const b64 = btoa(binary);
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function maskedKey(k){if(!k) return ''; const show=4; if(k.length <= show+4) return k.replace(/.(?=.{4})/g, '•'); return k.slice(0,show)+'•'.repeat(Math.min(12,k.length-show-4))+k.slice(-4);}
+function loadApiKeyDisplay(){const k=getActiveUser().apiKey||''; apiKeyInput.value=apiKeyVisible?k:maskedKey(k); toggleApiBtn.textContent=apiKeyVisible?'Masquer':'Voir';}
+
+generateApiBtn.addEventListener('click',()=>{
+  generateApiBtn.disabled=true; generateApiBtn.textContent='Génération…';
+  try{
+    const key = generateRandomBase64Url(32);
+    getActiveUser().apiKey=key; saveUsers(); apiKeyVisible=false; loadApiKeyDisplay(); showToast('Nouvelle API Key générée');
+  }catch(err){console.error(err); showToast('Erreur lors de la génération',2200);}
+  finally{generateApiBtn.disabled=false; generateApiBtn.textContent='Générer';}
+});
+copyApiBtn.addEventListener('click', async ()=>{
+  const k=getActiveUser().apiKey||''; if(!k) return showToast('Aucune clé à copier');
+  try{await navigator.clipboard.writeText(k); showToast('Clé copiée dans le presse‑papier');}catch(e){showToast('Échec copie',2400);}
+});
+toggleApiBtn.addEventListener('click',()=>{apiKeyVisible=!apiKeyVisible; loadApiKeyDisplay();});
+resetApiBtn.addEventListener('click',()=>{
+  if(confirm('Voulez-vous réellement réinitialiser la clé API ?')){getActiveUser().apiKey=''; saveUsers(); apiKeyVisible=false; loadApiKeyDisplay(); showToast('Clé API réinitialisée');}
+});
+loadApiKeyDisplay();
+
+// ================= Import / Export global =================
+document.getElementById('exportUsersBtn').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(deskUsers,null,2)],{type:'application/json'});
+  const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download='deskUsers.json'; link.click();
+});
+document.getElementById('importUsersBtn').addEventListener('click',()=>{
+  const file=document.getElementById('importUsersFile').files[0];
+  if(!file) return showToast('Aucun fichier sélectionné');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const imported=JSON.parse(e.target.result);
+      imported.forEach(newUser=>{
+        const existingIndex=deskUsers.findIndex(u=>u.name===newUser.name);
+        if(existingIndex!==-1){
+          // Fusion intelligente
+          const exUser=deskUsers[existingIndex];
+          exUser.photo=newUser.photo||exUser.photo;
+          exUser.apiKey=newUser.apiKey||exUser.apiKey;
+          newUser.accounts.forEach(acc=>{
+            const existsAcc=exUser.accounts.find(a=>a.email===acc.email);
+            if(!existsAcc) exUser.accounts.push(acc);
+          });
+          newUser.history.forEach(h=>exUser.history.push(h));
+        } else {deskUsers.push(newUser);}
+      });
+      saveUsers(); renderUserList(); showToast('Import réussi et fusionné');
+    }catch(err){console.error(err); showToast('Erreur lors de l\'import',2500);}
+  };
+  reader.readAsText(file);
+});
+
+</script>
+</body>
+</html>
